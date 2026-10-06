@@ -4,10 +4,9 @@ Tema de prompt para o [Oh My Zsh](https://ohmyz.sh) com as cores da Toski Labs.
 Inspirado no [Spaceship](https://spaceship-prompt.sh): duas linhas, informação só quando importa
 e uma patinha no lugar do `❯`.
 
-```
- ~/Docs/toskilabs/web on  main ⇡1 +2 !1 ?3 ·················  took  12s at  14:37:39
-
-```
+![Toski no escuro](images/prompt-dark.png)
+
+![Toski no claro](images/prompt-light.png)
 
 Combina com os temas Toski para [iTerm2](https://github.com/Toski-Labs/toski-labs-iterm-theme)
 e [VS Code](https://github.com/Toski-Labs/toski-labs-vscode-theme) e usa as cores do

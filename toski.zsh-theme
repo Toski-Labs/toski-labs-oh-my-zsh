@@ -53,11 +53,12 @@ typeset -gA _toski_light=(
 typeset -gA _toski_color _toski_f
 typeset -g _toski_mode_checked=0 _toski_mode_cache=dark
 
-typeset -g _toski_osc_ok=1
+typeset -g _toski_osc_ok=1 _toski_osc_fail=0
 
 # Pergunta ao terminal a cor de fundo (OSC 11) e diz se é escura ou clara.
 # É o jeito mais certo: vale para qualquer preset, inclusive o ☯ Toski.
 _toski_query_bg() {
+  setopt localoptions extendedglob
   REPLY=
   (( _toski_osc_ok )) && [[ -t 0 && -t 1 && -z $TMUX ]] || return
   local saved c resp=
@@ -73,7 +74,7 @@ _toski_query_bg() {
     integer r=$(( 16#${match[1][1,2]} )) g=$(( 16#${match[2][1,2]} )) b=$(( 16#${match[3][1,2]} ))
     (( r * 299 + g * 587 + b * 114 < 128000 )) && REPLY=dark || REPLY=light
   else
-    _toski_osc_ok=0   # o terminal não respondeu; não pergunta de novo
+    (( _toski_osc_fail++ >= 2 )) && _toski_osc_ok=0   # 3 falhas: para de perguntar
   fi
 }
 
