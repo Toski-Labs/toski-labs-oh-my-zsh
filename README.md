@@ -2,11 +2,11 @@
 
 Tema de prompt para o [Oh My Zsh](https://ohmyz.sh) com as cores da Toski Labs.
 Inspirado no [Spaceship](https://spaceship-prompt.sh): duas linhas, informação só quando importa
-e a patinha da Paçoca no lugar do `❯`.
+e uma patinha no lugar do `❯`.
 
 ```
  ~/Docs/toskilabs/web on  main ⇡1 +2 !1 ?3 ·················  took  12s at  14:37:39
-🐾
+
 ```
 
 Combina com os temas Toski para [iTerm2](https://github.com/Toski-Labs/toski-labs-iterm-theme)
@@ -79,14 +79,15 @@ direito some.
 
 ### Linha de baixo
 
-A patinha 🐾. Se você trocar por um caractere como `❯`, ele fica caramelo quando o último
-comando deu certo e vermelho quando deu erro.
+A patinha (ícone `paw` da Nerd Font), caramelo quando o último comando deu certo e
+vermelha quando deu erro. Sem ícones (`TOSKI_ICONS=false`), vira `❯`, com as mesmas cores.
 
 ## Cores
 
 | Papel | Escuro | Claro |
 |---|---|---|
-| Pasta, patinha | `#DB9A5B` caramelo | `#A9541F` ferrugem |
+| Pasta atual, patinha | `#DB9A5B` caramelo | `#A9541F` ferrugem |
+| Caminho até a pasta atual | `#A9541F` ferrugem | `#DB9A5B` caramelo |
 | Branch | `#CDA6D0` | `#7A4E8C` |
 | Stage | `#9CC48F` | `#3F6E3B` |
 | Modificados, erro | `#F09A78` | `#A3341A` |
@@ -110,7 +111,7 @@ Coloque no `~/.zshrc`, **antes** da linha `source $ZSH/oh-my-zsh.sh`.
 | `TOSKI_COLORS` | `auto` | `ds` (cores exatas), `ansi` (paleta do terminal) ou `auto` |
 | `TOSKI_MODE` | `auto` | `dark`, `light` ou `auto` (segue o macOS); só vale para `ds` |
 | `TOSKI_ICONS` | `true` | `false` tira os ícones Nerd Font |
-| `TOSKI_PROMPT_CHAR` | `🐾` | caractere da segunda linha (ex.: `❯`) |
+| `TOSKI_PROMPT_CHAR` | patinha | caractere da segunda linha (ex.: `❯` ou `🐾`; emoji não muda de cor) |
 | `TOSKI_PROMPT_CHAR_ERROR` | vazio | caractere quando o último comando deu erro (vazio = o mesmo) |
 | `TOSKI_ADD_NEWLINE` | `true` | linha em branco antes de cada prompt |
 | `TOSKI_FILL_CHAR` | `·` | caractere que liga os dois lados |

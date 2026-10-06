@@ -2,7 +2,7 @@
 # https://github.com/Toski-Labs/toski-labs-oh-my-zsh
 #
 #   ~/Docs/toskilabs/web on  main ⇡1 +2 !1 ?3 ··········  took  12s  at  14:37:39
-#  🐾
+#  
 #
 # Opções: defina antes da linha `source $ZSH/oh-my-zsh.sh` no ~/.zshrc. Veja o README.
 
@@ -15,7 +15,7 @@ autoload -Uz add-zsh-hook
 : ${TOSKI_COLORS:=auto}          # auto | ds | ansi
 : ${TOSKI_MODE:=auto}            # auto | dark | light  (só vale para as cores do DS)
 : ${TOSKI_ICONS:=true}           # ícones Nerd Font
-: ${TOSKI_PROMPT_CHAR:=🐾}
+: ${TOSKI_PROMPT_CHAR:=}          # vazio = patinha da Nerd Font (ou ❯ sem ícones)
 : ${TOSKI_PROMPT_CHAR_ERROR:=}   # vazio = igual ao TOSKI_PROMPT_CHAR
 : ${TOSKI_ADD_NEWLINE:=true}      # linha em branco entre um comando e o próximo prompt
 : ${TOSKI_FILL_CHAR:=·}
@@ -30,20 +30,20 @@ autoload -Uz add-zsh-hook
 # Mesmas cores do Toski DS e dos temas Toski para iTerm2 e VS Code.
 
 typeset -gA _toski_ansi=(
-  dir 3      muted 8   fill 8
+  dir 3      dir_parent 8  muted 8   fill 8
   branch 5   staged 2  modified 1  untracked 6  sync 4  stash 8  conflict 9  action 11
   took 3     time 8    ok 3        error 1
   user 4     root 1    node 2      jobs 6
 )
 typeset -gA _toski_dark=(
-  dir '#DB9A5B'    muted '#C2AE98'   fill '#43352B'
+  dir '#DB9A5B'    dir_parent '#A9541F'  muted '#C2AE98'   fill '#43352B'
   branch '#CDA6D0' staged '#9CC48F'  modified '#F09A78'  untracked '#8CC7BA'
   sync '#8FB8C9'   stash '#A08B78'   conflict '#F09A78'  action '#E8C26B'
   took '#E8C26B'   time '#A08B78'    ok '#DB9A5B'        error '#F09A78'
   user '#8FB8C9'   root '#F09A78'    node '#A9C98F'      jobs '#8CC7BA'
 )
 typeset -gA _toski_light=(
-  dir '#A9541F'    muted '#6B5648'   fill '#E6D8C4'
+  dir '#A9541F'    dir_parent '#DB9A5B'  muted '#6B5648'   fill '#E6D8C4'
   branch '#7A4E8C' staged '#3F6E3B'  modified '#A3341A'  untracked '#2E7468'
   sync '#2F6185'   stash '#7D6858'   conflict '#A3341A'  action '#8A6A00'
   took '#8A6A00'   time '#7D6858'    ok '#A9541F'        error '#A3341A'
@@ -53,17 +53,44 @@ typeset -gA _toski_light=(
 typeset -gA _toski_color _toski_f
 typeset -g _toski_mode_checked=0 _toski_mode_cache=dark
 
+typeset -g _toski_osc_ok=1
+
+# Pergunta ao terminal a cor de fundo (OSC 11) e diz se é escura ou clara.
+# É o jeito mais certo: vale para qualquer preset, inclusive o ☯ Toski.
+_toski_query_bg() {
+  REPLY=
+  (( _toski_osc_ok )) && [[ -t 0 && -t 1 && -z $TMUX ]] || return
+  local saved c resp=
+  saved=$(command stty -g 2>/dev/null) || return
+  command stty -echo -icanon 2>/dev/null
+  print -n $'\e]11;?\a' >/dev/tty
+  while read -rs -k 1 -t 0.15 c </dev/tty; do
+    resp+=$c
+    [[ $c == $'\a' || $resp == *$'\e\\' ]] && break
+  done
+  command stty $saved 2>/dev/null
+  if [[ $resp == (#b)*rgb:([0-9a-fA-F](#c2,4))/([0-9a-fA-F](#c2,4))/([0-9a-fA-F](#c2,4))* ]]; then
+    integer r=$(( 16#${match[1][1,2]} )) g=$(( 16#${match[2][1,2]} )) b=$(( 16#${match[3][1,2]} ))
+    (( r * 299 + g * 587 + b * 114 < 128000 )) && REPLY=dark || REPLY=light
+  else
+    _toski_osc_ok=0   # o terminal não respondeu; não pergunta de novo
+  fi
+}
+
 _toski_resolve_mode() {
   [[ $TOSKI_MODE != auto ]] && { REPLY=$TOSKI_MODE; return }
-  # Consulta o modo do macOS no máximo a cada 5 s (o `defaults` é lento).
+  # Confere no máximo a cada 5 s.
   if (( EPOCHSECONDS - _toski_mode_checked >= 5 )); then
     _toski_mode_checked=$EPOCHSECONDS
-    if [[ $OSTYPE == darwin* ]]; then
-      [[ $(defaults read -g AppleInterfaceStyle 2>/dev/null) == Dark ]] \
-        && _toski_mode_cache=dark || _toski_mode_cache=light
+    _toski_query_bg
+    if [[ -n $REPLY ]]; then
+      _toski_mode_cache=$REPLY
     elif [[ ${COLORFGBG##*;} == <-> ]]; then
       (( ${COLORFGBG##*;} >= 7 && ${COLORFGBG##*;} != 8 )) \
         && _toski_mode_cache=light || _toski_mode_cache=dark
+    elif [[ $OSTYPE == darwin* ]]; then
+      [[ $(defaults read -g AppleInterfaceStyle 2>/dev/null) == Dark ]] \
+        && _toski_mode_cache=dark || _toski_mode_cache=light
     fi
   fi
   REPLY=$_toski_mode_cache
@@ -106,17 +133,31 @@ fi
 _toski_esc() { REPLY=${1//\%/%%} }   # escapa % em textos vindos de fora
 
 _toski_section_user() {
+  REPLY=
   [[ -n $SSH_CONNECTION || -n $SSH_TTY || $EUID == 0 ]] || return
   local c=user; [[ $EUID == 0 ]] && c=root
   REPLY="${_toski_f[$c]}${_toski_icon[ssh]}%n@%m%f ${_toski_f[muted]}in%f "
 }
 
 _toski_section_dir() {
-  local icon=${_toski_icon[dir]} path_
+  REPLY=
+  local icon=${_toski_icon[dir]} full parent base
   [[ $PWD == $HOME ]] && icon=${_toski_icon[home]}
   [[ -w $PWD ]] || icon=${_toski_icon[lock]}
-  (( TOSKI_DIR_TRUNCATE > 0 )) && path_="%${TOSKI_DIR_TRUNCATE}~" || path_='%~'
-  REPLY="%B${_toski_f[dir]}${icon}${path_}%f%b"
+  if (( TOSKI_DIR_TRUNCATE > 0 )); then
+    full=${(%):-%${TOSKI_DIR_TRUNCATE}~}
+  else
+    full=${(%):-%~}
+  fi
+  # Pasta atual em destaque; o caminho até ela, mais discreto.
+  if [[ $full == */* && $full != / ]]; then
+    parent=${full%/*}/ base=${full##*/}
+  else
+    base=$full
+  fi
+  _toski_esc $parent; parent=$REPLY
+  _toski_esc $base;   base=$REPLY
+  REPLY="${_toski_f[dir]}${icon}%f${_toski_f[dir_parent]}${parent}%f%B${_toski_f[dir]}${base}%f%b"
 }
 
 _toski_section_git() {
@@ -203,6 +244,7 @@ _toski_section_git() {
 }
 
 _toski_section_node() {
+  REPLY=
   [[ $TOSKI_SHOW_NODE == true ]] || return
   [[ -f package.json || -f .nvmrc || -f .node-version ]] || return
   (( $+commands[node] )) || return
@@ -229,8 +271,15 @@ _toski_width() {
   # Sem prompt_subst aqui: nomes de branch com $(...) não podem ser executados.
   setopt localoptions noprompt_subst
   local zero='%([BSUbfksu]|([FK]|){*})'
-  local plain=${(S%%)1//$~zero/}
-  REPLY=${(m)#plain}
+  local plain=${(S%%)1//$~zero/} ch
+  # Ícones Nerd Font ficam na área de uso privado do Unicode, e o macOS diz que
+  # eles têm largura 0. O terminal desenha cada um numa coluna, então conta 1.
+  integer w=0 cw
+  for ch in "${(@s::)plain}"; do
+    cw=${(m)#ch}
+    (( w += cw > 0 ? cw : 1 ))
+  done
+  REPLY=$w
 }
 
 _toski_precmd() {
@@ -242,6 +291,7 @@ _toski_precmd() {
 
   # Lado esquerdo
   local left= right=
+  REPLY=
   _toski_section_user;  left+=$REPLY; REPLY=
   _toski_section_dir;   left+=$REPLY; REPLY=
   _toski_section_git;   left+=$REPLY; REPLY=
@@ -265,7 +315,9 @@ _toski_precmd() {
   # Pontinhos entre os dois lados
   _toski_width "$left";  local -i lw=$REPLY
   _toski_width "$right"; local -i rw=$REPLY
-  local -i gap=$(( COLUMNS - lw - rw - 2 ))
+  # Folga de 3 colunas: alguns ícones Nerd Font ocupam mais espaço no terminal
+  # do que o zsh calcula, e a hora não pode quebrar para a linha de baixo.
+  local -i gap=$(( COLUMNS - lw - rw - 4 ))
   if [[ -n $right ]] && (( gap >= 2 )); then
     local fill=${(pl:$gap::$TOSKI_FILL_CHAR:)}
     _toski_line1="${left} ${_toski_f[fill]}${fill}%f${right}"
@@ -273,14 +325,19 @@ _toski_precmd() {
     _toski_line1=$left
   fi
 
-  # Patinha (ou ❯) na segunda linha
+  # Patinha na segunda linha: caramelo quando deu certo, vermelha no erro
   local char=$TOSKI_PROMPT_CHAR c=ok
+  if [[ -z $char ]]; then
+    [[ $TOSKI_ICONS == true ]] && char=$'\uf1b0' || char='❯'
+  fi
   if (( ran && exit )); then
     c=error
     [[ -n $TOSKI_PROMPT_CHAR_ERROR ]] && char=$TOSKI_PROMPT_CHAR_ERROR
   fi
-  _toski_esc $char
-  _toski_char="${_toski_f[$c]}${REPLY}%f"
+  _toski_esc $char; char=$REPLY
+  # %1G diz ao zsh que o ícone ocupa 1 coluna, senão o cursor sai do lugar.
+  [[ $char == $'\uf1b0' ]] && char="%{${char}%1G%}"
+  _toski_char="%B${_toski_f[$c]}${char}%f%b"
 
   if [[ $TOSKI_ADD_NEWLINE == true ]] && (( ! _toski_first )); then
     _toski_newline=$'\n'
